@@ -1,0 +1,51 @@
+import tensorflow as tf
+from tensorflow.keras import layers, models, callbacks
+import os
+
+# Load the MNIST dataset
+mnist = tf.keras.datasets.mnist
+(train_images, train_labels), (test_images, test_labels) = mnist.load_data()
+
+# Normalize pixel values to between 0 and 1
+train_images, test_images = train_images / 255.0, test_images / 255.0
+
+# Define the CNN model
+def create_model():
+    model = models.Sequential([
+        layers.Flatten(input_shape=(28, 28)),
+        layers.Dense(128, activation='relu'),
+        layers.Dropout(0.2),
+        layers.Dense(10)
+    ])
+    return model
+
+model = create_model()
+
+# Compile the model
+model.compile(optimizer='adam',
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+              metrics=['accuracy'])
+
+# Define the checkpoint directory
+checkpoint_dir = './training_checkpoints'
+# Name of the checkpoint files
+checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
+
+# Callback to save the model's weights at each epoch
+checkpoint_callback=tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_prefix,
+                                                       save_weights_only=True)
+
+# Callback for early stopping
+early_stopping_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3)
+
+# Train the model with checkpoint saving and early stopping
+history = model.fit(train_images, train_labels, epochs=20,
+                    validation_data=(test_images, test_labels),
+                    callbacks=[checkpoint_callback, early_stopping_callback])
+
+# After training, you can restore the latest checkpoint weights
+model.load_weights(tf.train.latest_checkpoint(checkpoint_dir))
+
+# Evaluate the model on the test set
+test_loss, test_acc = model.evaluate(test_images, test_labels, verbose=2)
+print('\nTest accuracy:', test_acc)
